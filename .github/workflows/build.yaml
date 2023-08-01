@@ -9,6 +9,8 @@ on:
 jobs:
   docker:
     runs-on: ubuntu-22.04
+    permissions:
+      packages: write
 
     env:
       PLUGIN_NAME: ghcr.io/aczwink/docker-net-dhcp
