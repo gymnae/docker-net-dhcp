@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     env:
-      DOCKER_REPO: ghcr.io/aczwink/docker-net-dhcp
+      DOCKER_REPO: ghcr.io/gymnae/docker-net-dhcp
       PLATFORMS: linux/amd64,linux/386,linux/arm64,linux/arm/v7
 
     steps:
