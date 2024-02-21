@@ -108,7 +108,6 @@ func (p *Plugin) CreateNetwork(r CreateNetworkRequest) error {
 		"bridge":  opts.Bridge,
 		"ipv6":    opts.IPv6,
 	}).Info("Network created")
-	PersistNetworkOptions(r.NetworkID, opts);
 
 	return nil
 }
@@ -116,12 +115,27 @@ func (p *Plugin) CreateNetwork(r CreateNetworkRequest) error {
 // DeleteNetwork "deletes" a DHCP network (does nothing, the bridge is managed by the user)
 func (p *Plugin) DeleteNetwork(r DeleteNetworkRequest) error {
 	log.WithField("network", r.NetworkID).Info("Network deleted")
-	DeleteNetworkOptions(r.NetworkID)
 	return nil
 }
 
 func vethPairNames(id string) (string, string) {
 	return "dh-" + id[:12], id[:12] + "-dh"
+}
+
+func (p *Plugin) netOptions(ctx context.Context, id string) (DHCPNetworkOptions, error) {
+	dummy := DHCPNetworkOptions{}
+
+	n, err := p.docker.NetworkInspect(ctx, id, dTypes.NetworkInspectOptions{})
+	if err != nil {
+		return dummy, fmt.Errorf("failed to get info from Docker: %w", err)
+	}
+
+	opts, err := decodeOpts(n.Options)
+	if err != nil {
+		return dummy, fmt.Errorf("failed to parse options: %w", err)
+	}
+
+	return opts, nil
 }
 
 // CreateEndpoint creates a veth pair and uses udhcpc to acquire an initial IP address on the container end. Docker will
@@ -137,7 +151,7 @@ func (p *Plugin) CreateEndpoint(ctx context.Context, r CreateEndpointRequest) (C
 		return res, util.ErrIPAM
 	}
 
-	opts, err := LoadNetworkOptions(r.NetworkID)
+	opts, err := p.netOptions(ctx, r.NetworkID)
 	if err != nil {
 		return res, fmt.Errorf("failed to get network options: %w", err)
 	}
@@ -269,7 +283,7 @@ type operInfo struct {
 func (p *Plugin) EndpointOperInfo(ctx context.Context, r InfoRequest) (InfoResponse, error) {
 	res := InfoResponse{}
 
-	opts, err := LoadNetworkOptions(r.NetworkID)
+	opts, err := p.netOptions(ctx, r.NetworkID)
 	if err != nil {
 		return res, fmt.Errorf("failed to get network options: %w", err)
 	}
@@ -401,7 +415,7 @@ func (p *Plugin) Join(ctx context.Context, r JoinRequest) (JoinResponse, error) 
 	log.WithField("options", r.Options).Debug("Join options")
 	res := JoinResponse{}
 
-	opts, err := LoadNetworkOptions(r.NetworkID)
+	opts, err := p.netOptions(ctx, r.NetworkID)
 	if err != nil {
 		return res, fmt.Errorf("failed to get network options: %w", err)
 	}
