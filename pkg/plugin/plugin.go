@@ -18,7 +18,7 @@ import (
 // DriverName is the name of the Docker Network Driver
 const DriverName string = "net-dhcp"
 
-const defaultLeaseTimeout = 10 * time.Second
+const defaultLeaseTimeout = 60 * time.Second
 
 var driverRegexp = regexp.MustCompile(`^ghcr\.io/devplayer0/docker-net-dhcp:.+$`)
 
