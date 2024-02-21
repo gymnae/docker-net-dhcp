@@ -9,6 +9,7 @@ import (
 
 	docker "github.com/docker/docker/client"
 	"github.com/gorilla/handlers"
+	"github.com/mitchellh/mapstructure"
 	"github.com/vishvananda/netlink"
 
 	"github.com/devplayer0/docker-net-dhcp/pkg/util"
@@ -24,6 +25,36 @@ var driverRegexp = regexp.MustCompile(`^ghcr\.io/devplayer0/docker-net-dhcp:.+$`
 // IsDHCPPlugin checks if a Docker network driver is an instance of this plugin
 func IsDHCPPlugin(driver string) bool {
 	return driverRegexp.MatchString(driver)
+}
+
+// DHCPNetworkOptions contains options for the DHCP network driver
+type DHCPNetworkOptions struct {
+	Bridge          string
+	IPv6            bool
+	LeaseTimeout    time.Duration `mapstructure:"lease_timeout"`
+	IgnoreConflicts bool          `mapstructure:"ignore_conflicts"`
+	SkipRoutes      bool          `mapstructure:"skip_routes"`
+}
+
+func decodeOpts(input interface{}) (DHCPNetworkOptions, error) {
+	var opts DHCPNetworkOptions
+	optsDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		Result:           &opts,
+		ErrorUnused:      true,
+		WeaklyTypedInput: true,
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			mapstructure.StringToTimeDurationHookFunc(),
+		),
+	})
+	if err != nil {
+		return opts, fmt.Errorf("failed to create options decoder: %w", err)
+	}
+
+	if err := optsDecoder.Decode(input); err != nil {
+		return opts, err
+	}
+
+	return opts, nil
 }
 
 type joinHint struct {
@@ -45,7 +76,10 @@ type Plugin struct {
 
 // NewPlugin creates a new Plugin
 func NewPlugin(awaitTimeout time.Duration) (*Plugin, error) {
-	client, err := docker.NewClient("unix:///run/docker.sock", "v1.13.1", nil, nil)
+	client, err := docker.NewClientWithOpts(
+		docker.WithAPIVersionNegotiation(),
+		docker.WithTimeout(2*time.Second),
+		docker.FromEnv)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create docker client: %w", err)
 	}
