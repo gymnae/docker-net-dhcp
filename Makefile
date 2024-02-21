@@ -1,11 +1,9 @@
-PLUGIN_NAME = ghcr.io/gymnae/docker-net-dhcp
+PLUGIN_NAME = ghcr.io/devplayer0/docker-net-dhcp
 PLUGIN_TAG ?= golang
 PLATFORMS ?= linux/amd64,linux/arm64/v8
 
 SOURCES = $(shell find pkg/ cmd/ -name '*.go')
 BINARY = bin/net-dhcp
-
-include .env
 
 .PHONY: all debug build create enable disable pdebug push clean
 
@@ -18,7 +16,7 @@ debug: $(BINARY)
 	sudo $< -log debug
 
 build: $(SOURCES)
-	docker build ${DOCKER_BUILD_FLAGS} -t $(PLUGIN_NAME):rootfs .
+	docker build -t $(PLUGIN_NAME):rootfs .
 
 plugin/rootfs: build
 	mkdir -p plugin/rootfs
@@ -40,7 +38,7 @@ disable:
 	docker plugin disable $(PLUGIN_NAME):$(PLUGIN_TAG)
 
 pdebug: create enable
-	sudo sh -c 'tail -f ${DOCKER_DATA_PATH}/plugins/*/rootfs/var/log/net-dhcp.log'
+	sudo sh -c 'tail -f /var/lib/docker/plugins/*/rootfs/var/log/net-dhcp.log'
 
 push: create
 	docker plugin push $(PLUGIN_NAME):$(PLUGIN_TAG)
